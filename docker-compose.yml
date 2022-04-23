@@ -1,0 +1,94 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:13-bullseye
+    restart: unless-stopped
+    volumes:
+      - ./database:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+  nextcloud:
+    image: nextcloud:22-fpm
+    restart: unless-stopped
+    volumes:
+      - ./storage:/var/www/html
+    environment:
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=nextcloud
+      - NEXTCLOUD_ADMIN_USER
+      - NEXTCLOUD_ADMIN_PASSWORD
+    depends_on:
+      - postgres
+  cron:
+    image: nextcloud:22-fpm
+    restart: unless-stopped
+    volumes:
+      - ./storage:/var/www/html
+    entrypoint: /cron.sh
+    depends_on:
+      - postgres
+  innerweb:
+    image: nginx:1.21
+    #restart: unless-stopped
+    volumes:
+      - ./storage:/var/www/html:ro
+      - ./nginx_inner.conf:/etc/nginx/nginx.conf:ro
+    environment:
+      - VIRTUAL_HOST
+    depends_on:
+      - nextcloud
+    networks:
+      - proxy-tier
+      - default
+  proxy:
+    image: nginx:1.21
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - VIRTUAL_HOST
+    volumes:
+      - ./nginx_outer.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./letsencrypt:/etc/letsencrypt:ro
+      - ./is_server_fingerprint_current.sh:/usr/local/bin/is_server_fingerprint_current.sh:ro
+      - ./90-await-letsencrypt.sh:/docker-entrypoint.d/90-await-letsencrypt.sh:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      - innerweb
+    networks:
+      - proxy-tier
+    healthcheck:
+      test: 
+        - CMD
+        - /bin/sh
+        - "-euc"
+        - "is_server_fingerprint_current.sh 127.0.0.1 || sleep 5; is_server_fingerprint_current.sh 127.0.0.1 || kill -s TERM 1"
+      interval: 1min
+      retries: 1
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot_entrypoint.sh:/usr/local/bin/certbot_entrypoint.sh:ro
+      - ./is_server_fingerprint_current.sh:/usr/local/bin/is_server_fingerprint_current.sh:ro
+      - ./letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint:
+      - /usr/local/bin/certbot_entrypoint.sh
+    environment:
+      - VIRTUAL_HOST
+      - LETSENCRYPT_EMAIL
+    networks:
+      - proxy-tier
+
+volumes:
+  # opaque/ephemeral volume, can re-create acme challenge directory as needed
+  certbot-www:
+
+networks:
+  proxy-tier:
