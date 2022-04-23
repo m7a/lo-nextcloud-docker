@@ -15,6 +15,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./storage:/var/www/html
+    # TODO TRUSTED_DOMAINS is UNTESTED!
     environment:
       - POSTGRES_PASSWORD
       - POSTGRES_DB=nextcloud
@@ -22,19 +23,32 @@ services:
       - POSTGRES_USER=nextcloud
       - NEXTCLOUD_ADMIN_USER
       - NEXTCLOUD_ADMIN_PASSWORD
+      - "NEXTCLOUD_TRUSTED_DOMAINS=innerweb ${VIRTUAL_HOST}"
     depends_on:
       - postgres
+    # https://help.nextcloud.com/t/failed-to-install-nextcloud-with-docker-compose/83681
+    # nc was not available in my nextcloud container, bash was, though.
+    # TODO THIS SCRIPT IS BAD. IT DOES NOT REALLY WORK. TRY SOMETHING WITH PHP+POSTGRES CLIENT INSTEAD?
+    entrypoint:
+      - /bin/bash
+      - "-exuc"
+      - "while sleep 1; do exec 3<>/dev/tcp/postgres/5432 || continue; break; done; exec /entrypoint.sh php-fpm"
   cron:
     image: nextcloud:22-fpm
     restart: unless-stopped
     volumes:
       - ./storage:/var/www/html
     entrypoint: /cron.sh
+    environment:
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=nextcloud
     depends_on:
       - postgres
   innerweb:
     image: nginx:1.21
-    #restart: unless-stopped
+    restart: unless-stopped
     volumes:
       - ./storage:/var/www/html:ro
       - ./nginx_inner.conf:/etc/nginx/nginx.conf:ro
