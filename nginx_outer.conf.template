@@ -37,6 +37,9 @@ server {
 	# new https://serverfault.com/questions/875229/two-way-ssl-error-400-
 	ssl_verify_depth 2;
 
+	# avoid request entity too large error
+	client_max_body_size 2048M;
+
 	location / {
 		proxy_pass http://innerweb;
 		proxy_set_header  X-Real-IP  $remote_addr;
