@@ -99,8 +99,8 @@ other server 24/7.
 
 All of the users are expected to be tech-savvy enough to instruct their clients
 to use TLS client certificates. In case you want to setup Nextcloud for less
-tech-savvy users consider dropping client certificates because it may be a
-PITA for some people to get right on their side.
+experienced users consider dropping client certificates because they can be a
+PITA for some people to set up.
 
 Compared to other options like running an SSH server for storage, Nextcloud has
 a major advantage: It can do server-side encryption. If configured correctly,
@@ -113,7 +113,7 @@ Setup Principles
 
 The setup principles in this guide are as follows:
 
- * Set it up with Docker
+ * Set it up with Docker.
  * Use Let's Encrypt.
  * Set up TLS client certificates.
  * Automate as many maintenance tasks as possible.
@@ -131,29 +131,30 @@ it is also possible to easily reproduce the setup later if needed.
 ## Use Let's Encrypt
 
 Actually I am still not sure if this is the best way to go. Let's Encrypt allows
-you free TLS Server Certificates that will be accepted by all major clients by
-default. It thus makes sense to use this for Nextcloud in general. It also
-gives a good sense of conficence if browsers do not regularly greet you with
-_This page is insecure_ etc.
+you to obtain free TLS Server Certificates that will be accepted by all major
+clients by default. It thus makes sense to use this for Nextcloud in general. It
+also gives a good sense of confidence if browsers do not regularly greet you
+with _This page is insecure_.
 
 In the setup presented here, an own CA is still needed for the TLS Client
 Certificates, though. Also, Let's Encrypt does not actually lend itself well
-to being automated (see _Installation Details_). Let's Encrypt also locks you
+to being automated (see _Installation Details_). Let's Encrypt locks you
 into certain choices like providing your services through port 443 which may
 collide with other applications that you might possibly be running there
 already. While Reverse Proxies solve this issue in theory, their configuration
 becomes a snowflake as soon as you start mixing multiple services together in a
 single configuration just to satisfy this Let's Encrypt port requirement.
 
-If you want to deploy a setup similar to mines, do not take the complexity of
-Let's Encrypt lightly and consider if running everything with your own CA might
-not also be worth it?
+If you want to deploy a setup similar to mine's, do not take the complexity of
+Let's Encrypt lightly.
 
 ## Set up TLS Client Certificates
 
 Use TLS Client Certificates because they are much more secure than passwords or
 any application-enforced 2FA. Its a hard layer of security that walls-off the
-PHP-based Nextcloud directly on the HTTP server level.
+Nextcloud directly on the HTTP server level. Being webserver-based, TLS Client
+Certificate protection endures even in the presence of security holes in
+Nextcloud.
 
 **TLS Client Certificates are one of the three ways to do anything over
 the Internet securely. The other two options are SSH and VPN btw.**
@@ -171,7 +172,7 @@ give it up lightly.
 ## Automate as many Maintenance Tasks as possible
 
 It is remarkable in a negative sense that many tutorials are based on Docker,
-buit still require multiple manual steps to be performed in-sequence rather
+but still require multiple manual steps to be performed in-sequence rather
 than allowing for the idiomatic `docker-compose up`.
 
 Also, in some tutorials, maintenance like renewing Let's Encrypt certificates
@@ -193,11 +194,11 @@ containers.
 
 ## Keep it as simple as possible under the Circumstances
 
-There are some images like e.g. `nginx-proxy`
+There are images like e.g. `nginx-proxy`
 <https://github.com/nginx-proxy/nginx-proxy> that attempt to make components
 like the nginx web server more docker-friendly by automating and scripting
 configuration file creation. The resulting source codes are rather complex,
-though, see e.g. <https://github.com/nginx-proxy/nginx-proxy/blob/main/nginx.tmpl>.
+though, e.g. <https://github.com/nginx-proxy/nginx-proxy/blob/main/nginx.tmpl>.
 
 Some of this complexity cannot be avoided in automation, but at least for nginx
 there is an easier way by creating an alsmost-static configuration file and
@@ -309,6 +310,20 @@ The choice of PostgreSQL over Mariadb is only a matter of preference. If you
 have more/better experience with Mariadb, feel free to reconfigure the services
 to use that DBMS instead.
 
+## Redis
+
+~~~{.yaml}
+  redis:
+    image: redis:6.2-bullseye
+    restart: unless-stopped
+    volumes:
+      - ./redis:/var/lib/redis
+~~~
+
+This service is optional but improves performance significantly. Given the
+generally abysmal performance of Nextcloud, it seems best to enable this all
+the time!
+
 ## Nextcloud
 
 ~~~{.yaml}
@@ -323,11 +338,13 @@ to use that DBMS instead.
       - POSTGRES_DB=nextcloud
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=nextcloud
+      - REDIS_HOST=redis
       - NEXTCLOUD_ADMIN_USER
       - NEXTCLOUD_ADMIN_PASSWORD
       - "NEXTCLOUD_TRUSTED_DOMAINS=innerweb ${VIRTUAL_HOST}"
     depends_on:
       - postgres
+      - redis
     entrypoint:
       - /usr/local/bin/php
       - "-f"
@@ -342,11 +359,10 @@ webbrowser to. For some reasons it is necessary to list the internal name
 (`innerweb`) as well as the external name (provided by variable `VIRTUAL_HOST`)
 here.
 
-_TODO THIS VARIABLE HAS NOT BEEN TESTED THOROUGHLY. CHECK IF IT ACTUALLY PERFORMS AS EXPECTED. ALTERNATIVELY EDIT CONFIG.PHP FILE DIRECTLY_
-
 The `entrypoint` is overridden because while in theory, Nextcloud automatically
-restarts if it cannot reach the database, in practice this yields a correupted
-installation. See <https://help.nextcloud.com/t/failed-to-install-nextcloud-with-docker-compose/83681>.
+restarts if it cannot reach the database, in practice this yields a corrupted
+installation. See
+<https://help.nextcloud.com/t/failed-to-install-nextcloud-with-docker-compose/83681>.
 
 The `nextcloud_entrypoint.php` is thus a simple wrapper that ensures that
 the database is reachable before executing the Nextcloud-provided entrypoint.
@@ -396,8 +412,10 @@ to code it in PHP because that is what Nextcloud will be using in the end, too.
       - POSTGRES_DB=nextcloud
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=nextcloud
+      - REDIS_HOST=redis
     depends_on:
       - postgres
+      - redis
 ~~~
 
 This service is using a different entrypoint to automatically perform regularly
@@ -717,44 +735,89 @@ stage 4 if a new certificate was obtained (note the `--deploy-hook` argument).
 Handling Updates
 ================
 
-TODO MISSING
+There seem to be two images widely used to address automatic upgrades of docker
+containers. Both of them work by watching the base images for changes and
+applying them by re-creating the container using the new image on the fly.
+
+ 1. `watchtower` <https://hub.docker.com/r/containrrr/watchtower>
+ 2. `ouroboros` <https://github.com/gmt2001/ouroboros/pkgs/container/ouroboros>
+
+Both are setup very similarly. Use e.g. the following command for setting up
+watchtower (copied from documentation, works):
+
+	docker run -d --name watchtower -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower
+
+Doing it this way is not strictly correct given that with this setup, watchtower
+could interrupt the containers at any time including during critical
+transactions. Doing it correctly will only affect a small minority of cases but
+require much more effort in form of suitable hook scripts. Feel free to extend
+the setup into the direction and share the results :)
+
+It makes sense to run `watchtower` outside of `docker-compose` because it is
+expected that only a single instance runs _per machine_. I.e. if there are
+multiple services deployed through multiple `docker-compose.yml` in different
+directories then all should share the same (single) `watchtower` instance.
+It would also be possible to configure `watchtower` to monitor only a limited
+set of containers explicitly, but in such setups difficulty arises from ensuring
+that no two services are unexpectedly handled by multiple watchtowers. Here,
+the single-instance approach is preferred.
 
 Post Installation
 =================
 
-TODO CSTAT
+After installation, continue configuration by the means presented by NextCloud.
+To enable server-side encryption with a per-user key that cannot be recovered
+by admins, the following settings seem to be needed. Run these inside the
+`nextcloud` container -- not all of these features are available through the
+GUI.
 
-occ app:enable encryption
-occ encryption:enable
-occ encryption:encrypt-all
-occ encryption:disable-master-key
+	occ app:enable encryption
+	occ encryption:enable
+	occ encryption:encrypt-all
+	occ encryption:disable-master-key
 
-documentation wrt. encryption is outdated, see
-https://github.com/nextcloud/server/issues/8283#issuecomment-369273503
+Documentation wrt. encryption seems to be outdated, see
+<https://github.com/nextcloud/server/issues/8283#issuecomment-369273503>
 
-Benchmarks
-==========
+Benchmarks and Clients
+======================
 
-Benchmark with WebDAV backend. `davs://<domain>/remote.php/dav/files/masysma/`.
-Replace `<domain>` with your domain and `masysma` with your username.
+One of the big drawbacks of a solution like Nextcloud compared to other, less
+web-centric variants such as exposing an SSH server for file storage or hosting
+an own AWS S3 compatible storage with `minio` is the difficulty of integrating
+Nextcloud as a real file store rather than only a web interface for file upload
+and download.
 
-The following test sets are used:
+Specifically, while the official GUI client does seem to support TLS Client
+certificates, I could not actually get it to complete the login successfully.
+It would always redirect me to the wrong URL or give some error regarding the
+authentication. The official CLI client does not support TLS Client Certificates
+at all.
+
+Instead, multiple non-Nextcloud tools were researched and tried for comparision.
+Only two of the tools could be instantiated and run successfully in the setup at
+hand: `rclone` and `davfs2`. Both of them make use of the WebDAV backend for
+Nextcloud which is available under
+`davs://<domain>/remote.php/dav/files/masysma/` where `<domain>` is your domain
+name and `masysma` your username.
+
+The following test data was used to check upload performance:
 
 Testset   Copy Speed [MiB/s]  `du -sh`/G  `find | wc -l`
 --------  ------------------  ----------  --------------
 JMBB      180                 30          1737
 Bupstash  18                  31          68529
 
-The following tools are considered:
+The following tools were considered:
 
-Tool          In Debian?  Version Tested  Programming Language  Links
-------------  ----------  --------------  --------------------  ---------------------------------------------
-davfs2        Y           1.6.0-1         C                     <https://savannah.nongnu.org/projects/davfs2>
-rclone        Y           1.53.3-1+b6     Go                    <https://rclone.org/>
-lftp          Y           4.8.4-2+b1      TODO TBD
-webdav_sync   N           1.1.9           Java                  <http://www.re.be/webdav_sync/index.xhtml>
-syncany       N           5a90af9c3f3d66  Java                  <https://www.syncany.org/>
-                                                                <https://github.com/syncany/syncany>
+Tool          In Debian?  Worked?  Version Tested  Programming Language  Links
+------------  ----------  -------  --------------  --------------------  ---------------------------------------------
+davfs2        Y           Y        1.6.0-1         C                     <https://savannah.nongnu.org/projects/davfs2>
+rclone        Y           Y        1.53.3-1+b6     Go                    <https://rclone.org/>
+lftp          Y           N        4.8.4-2+b1      C++                   <https://github.com/lavv17/lftp>
+webdav_sync   N           N        1.1.9           Java                  <http://www.re.be/webdav_sync/index.xhtml>
+syncany       N           N        5a90af9c3f3d66  Java                  <https://www.syncany.org/>
+                                                                         <https://github.com/syncany/syncany>
 
 ## Setup davfs2
 
@@ -769,17 +832,87 @@ syncany       N           5a90af9c3f3d66  Java                  <https://www.syn
  * Copy client01.crt and client01.key to `/media/disk2zfs/wd`
  * `rclone config create nextcloud webdav url https://<domain>/remote.php/dav/files/masysma user masysma pass <password>`
 
+## Benchmark davfs2
+
+~~~
+$ time rsync -a /media/disk2zfs/wd/testset_jmbb/ /media/davfs2/testset_jmbb/ && time umount /media/davfs2
+real    224m23.520s
+user    0m32.776s
+sys     1m20.936s
+/sbin/umount.davfs: waiting for mount.davfs (pid 2810) to terminate gracefully ......................................................................................................................................................................................................................................................................................................................................... OK
+
+real    16m32.194s
+user    0m2.828s
+sys     0m5.319s
+~~~
+
+## Benchmark rclone
+
+~~~
+$ time rclone --fast-list --progress --client-cert /media/disk2zfs/wd/client01.crt --client-key /media/disk2zfs/wd/client01.key sync /media/disk2zfs/wd/testset_jmbb/ nextcloud:testset_jmbb --create-empty-src-dirs
+real    84m10.653s
+user    1m18.506s
+sys     1m26.575s
+$ time rclone --fast-list --client-cert /media/disk2zfs/wd/client01.crt --client-key /media/disk2zfs/wd/client01.key sync /media/disk2zfs/wd/testset_bupstash/ nextcloud:testset_bupstash --create-empty-src-dirs
+~~~
+
+## Results
+
+testset_jmbb = 31173824 kib
+TODO COMPLETE THE RESULTS
+
+Tool    JMBB [MiB/s]  Bupstash [MiB/s]
+------  ------------  ----------------
+davfs2  2.11          TODO TBD
+rclone  6.03          TODO TBD
+
+Conclusion and Future Directions
+================================
+
+It is surprising how many bugs and missing features encouters when trying to
+setup a Nextcloud securely today. Also, Nextcloud's performance on low-end
+servers like the une used here is rather bad.
+
+With `rclone` and `davfs2` there are two reliable ways to access Nextcloud's
+WebDAV interface either as a “live file system” or as as synchronization target.
+It is also expected that it is actually possible to run the Nextcloud GUI with
+which would allow a third form of synchronization: Local directory synchronized
+with Nextcloud automatically and persisted on _both_ ends. This could not be
+set up successfully during the writing of this blog post, though.
+
+Better understanding should be developed regarding the performance. Missing
+TLS Client Certificate support in official Nextcloud tools should be fixed.
+`lftp` should be made to run on Nextcloud's WebDAV.
+
+Finally, it also seems important to not foreget about the “easier” means of
+exposing a secure file storage online: SSH and Minio/S3 come into mind as
+notable alternatives.
+
+See Also
+========
+
+_TODO WHAT DO WE LINK TO HERE?_
+
+Notes from Failed Benchmarks
+============================
+
+This section collects data about programs that couldn't be convinced to run.
+It serves as a list of “open ends” that could be pursued further if time
+permits.
+
 ## Setup lftp
 
-	$ lftp
-	lftp> set ssl:cert-file client01.crt
-	lftp> set ssl:key-file client01.key
-	lftp> set ssl:ca-file /etc/ssl/certs/ca-certificates.crt
-	lftp> set ssl:verify-certificate false
-	lftp> set http:use-propfind yes
-	lftp> set http:use-allprop yes
-	lftp> connect -u masysma,<password> https://<url>/remote.php/dav/files/masysma/
-	lftp> ls
+~~~
+$ lftp
+lftp> set ssl:cert-file client01.crt
+lftp> set ssl:key-file client01.key
+lftp> set ssl:ca-file /etc/ssl/certs/ca-certificates.crt
+lftp> set ssl:verify-certificate false
+lftp> set http:use-propfind yes
+lftp> set http:use-allprop yes
+lftp> connect -u masysma,<password> https://<url>/remote.php/dav/files/masysma/
+lftp> ls
+~~~
 
 Displays an empty directory where the remote contents would have been expected!
 
@@ -796,7 +929,7 @@ Displays an empty directory where the remote contents would have been expected!
 	cd ./build/install/syncany/lib
 	ls *.jar | tr '\n' ':'
 	java -cp animal-sniffer-annotations-1.17.jar:bcpkix-jdk15on... org.syncany.Syncany
-	
+
 Here, it only shows `local` plugin which seems to mean it will not do WebDav?
 The command series to chose (if it worked) is `init`, `connect`, `up`.
 
@@ -804,36 +937,3 @@ The command series to chose (if it worked) is `init`, `connect`, `up`.
 
  * nextcloudcmd
  * nextcloud (GUI) failed because it could not complete authorization dance
-
-## Benchmark davfs2
-
-TODO WHAT IF IT WAS SO FAST BECAUSE IT IGNORED SOME UPLOAD ERRORS? IT HAS A LARGE CACHE FILE. SHOULD RE-DO THIS BENCHMARK WITH UNMOUNT AND SEE WHAT THE HECK GOES ABOUT THE CACHE FILE?
-
-~~~
-$ time rsync -a /media/disk2zfs/wd/testset_jmbb/ /media/davfs2/testset_jmbb/
-real    45m34.838s
-user    0m33.952s
-sys     1m23.468s
-~~~
-
-## Benchmark rclone
-
-~~~
-$ time rclone --client-cert /media/disk2zfs/wd/client01.crt --client-key /media/disk2zfs/wd/client01.key sync /media/disk2zfs/wd/testset_jmbb/ nextcloud:testset_jmbb --create-empty-src-dirs
-real    123m24.828s
-user    1m23.665s
-sys     1m27.666s
-$ time rclone --buffer-size 2G --fast-list --progress --transfers 128 --client-cert /media/disk2zfs/wd/client01.crt --client-key /media/disk2zfs/wd/client01.key sync /media/disk2zfs/wd/testset_jmbb/ nextcloud:testset_jmbb --create-empty-src-dirs
-~~~
-
-## Results
-
-Tool    JMBB [MiB/s]  Bupstash [MiB/s]
-------  ------------  ----------------
-davfs2  11.13         TODO TBD
-rclone  4.11          TODO TBD
-
-See Also
-========
-
-
