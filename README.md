@@ -89,13 +89,14 @@ Use Case: Why Nextcloud?
 ========================
 
 Nextcloud can be used for a variety of purposes. My setup focuses on using it
-as a _backup server_ that I can share with some friends. The idea is that each
-of us runs their own Nextcloud and provides access to the other friends. Then
-we can send backups to friends in order to have them securely stored offsite.
+as a _backup storage server_ that I can share with some friends. The idea is
+that each of us runs their own Nextcloud instance and provides access to the
+other friends. Then we can send backups to friends in order to have them
+stored offsite.
 
 Compared to a public cloud solution this gives us full control about our data
 and keeps costs low especially since some of us are already running one or the
-other server 24/7.
+other machine 24/7.
 
 All of the users are expected to be tech-savvy enough to instruct their clients
 to use TLS client certificates. In case you want to setup Nextcloud for less
@@ -123,7 +124,7 @@ The setup principles in this guide are as follows:
 
 My main argument for a setup with Docker is that I have experience with the
 technology and use it for some other serivces on the same server already. Hence
-it palys well in terms of regularity to attempt having _all_ of the services
+it plays well in terms of regularity to attempt having _all_ of the services
 in Containers. It also works pretty well for developing on one machine and
 deploying to another machine later. Using `docker-compose.yml` files and scripts
 it is also possible to easily reproduce the setup later if needed.
@@ -157,17 +158,17 @@ Certificate protection endures even in the presence of security holes in
 Nextcloud.
 
 **TLS Client Certificates are one of the three ways to do anything over
-the Internet securely. The other two options are SSH and VPN btw.**
+the Internet securely. The other two options are SSH and VPN.**
 
 Compared to the alternatives, most clients support TLS Client Certificates
 enough such that you do not need to setup any tunnel (as with SSH or VPN based
-access to a website). TLS Client Certificates are thus perfectly well-suited for
-the purpose.
+access to a website). TLS Client Certificates are thus well-suited for the
+purpose.
 
 Keep in mind that other scenarios like mobile devices, less tech-savvy users or
 access through proprietary programs may require you to give up on TLS Client
-Certificates. It is the strongest layer of security in the entire setup. Do not
-give it up lightly.
+Certificates. Be aware that despite the complexity, it is the strongest layer of
+security in the entire setup.
 
 ## Automate as many Maintenance Tasks as possible
 
@@ -182,9 +183,9 @@ of time (we are talking about storage after all!) this seems pretty
 short-sighted an approach.
 
 This guide attempts to address some of the issues although it does not solve
-them in their entirety. This is partially due to Nextcloud being a pretty
-stateful application with a Database. None of this lends itself well to
-fully-automatic upgrades.
+them in their entirety. This is partially due to Nextcloud being a stateful
+application with a database. This limits the possibilites for fully-automatic
+upgrades.
 
 As a design decision, a minimum number of Docker images is used. Also, all
 modifications to the images are done by mounting files into the containers
@@ -236,7 +237,9 @@ lines:
 :   Set this to a good randomly generated password. You do not normally need to
     enter it anywhere else.
 `VIRTUAL_HOST`
-:   Set this to your public domain name.
+:   Set this to your public domain name. In this article, I will use
+    `test.example.com` as an example value that you need to replace with your
+    own domain.
 `LETSENCRYPT_EMAIL`
 :   Configure an e-mail address to register with Let's Encrypt.
 `NEXTCLOUD_ADMIN_USER`
@@ -321,8 +324,8 @@ to use that DBMS instead.
 ~~~
 
 This service is optional but improves performance significantly. Given the
-generally abysmal performance of Nextcloud, it seems best to enable this all
-the time!
+generally abysmal performance of Nextcloud (see further down), it seems best to
+enable this all the time!
 
 ## Nextcloud
 
@@ -547,7 +550,7 @@ In order for Let's Encrypt to work, it needs to recognize a challenge either in
 form of a DNS record or a file served through HTTP. While the DNS record has
 the advantage of not needing to expose a web server on port 80 it is also
 very rarely configurable automatically with free dyndns providers. Hence the
-variant over HTTP is implemented here. The only path available thorugh HTTP is
+variant over HTTP is implemented here. The only path available through HTTP is
 `/.well-known/acme-challenge` whereas all other HTTP queries are redirected
 to HTTPS causing the client certificate to become required.
 
@@ -604,8 +607,8 @@ As already mentioned, Let's Encrypt does not lend itself well to automation.
 That is mostly because of the problem mentioned in the preceding paragraphs:
 In order for Let's Encrypt to work it requires access to the challenge
 through port 80. As this port is served by the same webserver that is also
-binding port 443 for TLS, the server cannot start up without some certificate
-being in place already.
+binding port 443 for TLS, the server needs some certificates already to start
+up.
 
 Hence usually, this part of the setup is hand-crafted by first starting the
 server with either a dummy certificate or on port 80 only. Then, the Let's
@@ -700,7 +703,7 @@ As soon as it is completed, it proceeds to the next stage.
 ~~~
 
 This stage synchronizes to the restart triggered by the healthcheck of the
-`proxy` service. In theory this would be opational (the delay in stage 5 is long
+`proxy` service. In theory this would be optional (the delay in stage 5 is long
 enough that it should have restarted by then) but it better signals the
 completion of the process to have this stage pass through.
 
@@ -911,11 +914,6 @@ $ maxima
 
 (%i1) (2*60+15.060) + (06-04)*3600+(42-54)*60+58-21;
 (%o1)                               6652.06
-~~~
-
-![JMBB GUI traffic reported on the Nextcloud machine is the large green mountain](nextcloud_docker_att/network_22_for_jmbb_gui_left)
-
-~~~
 $ date; time rsync -a testset_bupstash/ linux-fan@192.168.122.200:/home/linux-fan/Nextcloud/test4/testset_bupstash/; date
 Sat 14 May 2022 09:29:30 PM CEST
 linux-fan@192.168.122.200's password:
@@ -925,9 +923,15 @@ user    3m18.544s
 sys     1m52.748s
 Sat 14 May 2022 09:34:25 PM CEST
 $ date # from screenshots
-
-$ maxima
+Sun 15 May 2022 02:44:33 PM CEST
 ~~~
+
+In the figure, one can see two green areas: The large one on the left is the
+traffic that was monitored during the upload of the JMBB test set with the
+GUI client. The smaller and wider one on the right is the traffic monitored
+during the upload of the Bupstash test set:
+
+![Traffic reported on the Nextcloud machine during GUI uploads](nextcloud_docker_att/network_22_for_jmbb_gui_left)
 
 ## Benchmark rclone
 
@@ -952,13 +956,10 @@ sys     6m47.965s
 
 ## Results
 
-testset_jmbb = 31173824 kib
-TODO COMPLETE THE RESULTS
-
 Tool    JMBB [MiB/s]  Bupstash [MiB/s]
 ------  ------------  ----------------
 davfs2  2.11          (see text)
-GUI     4.67          
+GUI     4.67          0.51
 rclone  6.03          0.22
 
 Conclusion and Future Directions
