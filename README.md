@@ -950,7 +950,7 @@ $ date # from screenshots
 Sun 15 May 2022 02:44:33 PM CEST
 ~~~
 
-![Traffic reported on the Nextcloud machine during GUI uploads](nextcloud_docker_att/network_22_for_jmbb_gui_left)
+![Traffic reported on the Nextcloud machine during GUI uploads](nextcloud_docker_tls_att/network_22_for_gui.png)
 
 In the figure, one can see two green areas: The large one on the left is the
 traffic that was monitored during the upload of the JMBB test set with the
@@ -966,7 +966,7 @@ user    1m18.506s
 sys     1m26.575s
 ~~~
 
-![JMBB rclone Traffic is on the very right](nextcloud_docker_att/nextwork_22_for_jmbb_rclone_right.png)
+![JMBB rclone Traffic is on the very right](nextcloud_docker_tls_att/network_22_for_jmbb_rclone_right.png)
 
 For the JMBB benchmark, a graphical representation of the network traffic on
 the target (Nextcloud) machine can be seen in the figure above.
