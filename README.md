@@ -1,5 +1,5 @@
 ---
-section: 42
+section: 37
 x-masysma-name: nextcloud_docker_tls
 title: Nextcloud in Docker with Letsencrypt and TLS Client Certificates
 date: 2022/04/24 15:08:29
@@ -754,7 +754,7 @@ Doing it this way is not strictly correct given that with this setup, watchtower
 could interrupt the containers at any time including during critical
 transactions. Doing it correctly will only affect a small minority of cases but
 require much more effort in form of suitable hook scripts. Feel free to extend
-the setup into the direction and share the results :)
+the setup in that regard and share the results :)
 
 It makes sense to run `watchtower` outside of `docker-compose` because it is
 expected that only a single instance runs _per machine_. I.e. if there are
@@ -768,7 +768,7 @@ the single-instance approach is preferred.
 Post Installation
 =================
 
-After installation, continue configuration by the means presented by NextCloud.
+After installation, continue configuration by the means presented by Nextcloud.
 To enable server-side encryption with a per-user key that cannot be recovered
 by admins, the following settings seem to be needed. Run these inside the
 `nextcloud` container -- not all of these features are available through the
@@ -782,10 +782,11 @@ GUI.
 Documentation wrt. encryption seems to be outdated, see
 <https://github.com/nextcloud/server/issues/8283#issuecomment-369273503>
 
-It is also required to fix some issues in `config.php` -- it remains a little
-unclear which of them can be set correctly by environment variables and which
-of them need to be set explicitly. In my case, the following settings had to
-be added/edited:
+It might also be required to fix some issues in `config.php` -- it remains a
+little unclear which of them can will be set correctly by environment variables
+and which of them need to be set explicitly. In my case, the following settings
+had to be hand-checked (path `storage/config/config.php`, notation slightly
+amended for brevity):
 
 ~~~{.php}
 <?php
@@ -794,7 +795,7 @@ $CONFIG = [
 	'memcache.distributed' => '\\OC\\Memcache\\Redis',
 	'memcache.locking'     => '\\OC\\Memcache\\Redis',
 	'redis'                => ['host'=>'redis','password'=>'','port'=>6379],
-	'trusted_domains'      => [0 => 'innerweb', 1 => 'test.example.com']
+	'trusted_domains'      => [0 => 'innerweb', 1 => 'test.example.com'],
 	'overwrite.cli.url'    => 'https://test.example.com',
 	'overwritehost'        => 'test.example.com',
 	'overwriteprotocol'    => 'https',
@@ -814,14 +815,14 @@ and download.
 
 One way is the official Nextcloud Desktop client which I will hereafter refer to
 as GUI client. Additionally, multiple non-Nextcloud tools were researched and
-tried for comparision. Only two of the tools could be instantiated and run
+tried for comparision. Only two of these tools could be instantiated and run
 successfully in the setup at hand: `rclone` and `davfs2`. Both of them make use
 of the WebDAV backend for Nextcloud which is available under
 `davs://test.example.com/remote.php/dav/files/masysma/` where `test.example.com`
 is your domain name and `masysma` your username.
 
 While there is also an official Nextcloud commandline client (`nextcloudcmd`),
-it does not seem to support TLS Client Certificates.
+it does not seem to support TLS Client Certificates yet.
 
 The following test data was used to check upload performance:
 
@@ -839,15 +840,38 @@ GUI           Y           Y        3.5.0 AppImage  C++                   <https:
 rclone        Y           Y        1.53.3-1+b6     Go                    <https://rclone.org/>
 lftp          Y           N        4.8.4-2+b1      C++                   <https://github.com/lavv17/lftp>
 webdav_sync   N           N        1.1.9           Java                  <http://www.re.be/webdav_sync/index.xhtml>
-syncany       N           N        5a90af9c3f3d66  Java                  <https://www.syncany.org/>
-                                                                         <https://github.com/syncany/syncany>
+syncany       N           N        5a90af9c3f3d66  Java                  <https://github.com/syncany/syncany>
+
+The server runs on an Intel NUC with the following characteristics
+(`syssheet -g` output, IP address redacted):
+
+~~~
+┌─────── System Sheet Script 1.2.7, Copyright (c) 2012-2021 Ma_Sys.ma ─────────┐
+│ linux-fan (id 1000) on rxvt-unicode-256color  Debian GNU/Linux 11 (bullseye) │
+│ Linux 5.10.0-13-amd64                                                 x86_64 │
+│ 15.05.2022 15:07:17                                               masysma-16 │
+│ up 36 days, 25 min,  4 users,  load avg: 0.24, 0.20, 0.64      1254/7834 MiB │
+│ 4 Intel(R) Celeron(R) CPU J3455 @ 1.50GHz                                    │
+├────────────────────────────────── Network ───────────────────────────────────┤
+│ Interface                      Sent/MiB  Received/MiB                Address │
+│ enp2s0                            91337        397894                        │
+├─────────────────────────────── File systems ─────────────────────────────────┤
+│ Mountpoint                     Used/GiB        Of/GiB             Percentage │
+│ /                                   335          1817                    19% │
+├─────────────────────────────────── Users ────────────────────────────────────┤
+│ Username     MEM/MiB            Top/MEM      CPU          Top/CPU   Time/min │
+│ systemd-cor+     454           postgres     2.4%     redis-server         36 │
+│ systemd-tim+      58              nginx       1%            nginx         21 │
+│ dnsmasq            1            dnsmasq       0%          dnsmasq          0 │
+└──────────────────────────────────────────────────────────────────────────────┘
+~~~
 
 ## Setup davfs2
 
  * Add `clientcert /etc/davfs2/certs/client01.full.pfx` in
    `/etc/davfs2/davfs2.conf`
  * `chown root:root /etc/davfs2/certs/client01.full.pfx`
- * `mount -t davfs -o username=masysma,uid=1000,gid=1000 https://<domain>/remote.php/dav/files/masysma /media/davfs2`
+ * `mount -t davfs -o username=masysma,uid=1000,gid=1000 https://test.example.com/remote.php/dav/files/masysma /media/davfs2`
  * Enter password
 
 ## Setup GUI
@@ -865,7 +889,7 @@ syncany       N           N        5a90af9c3f3d66  Java                  <https:
 ## Setup rclone
 
  * Copy client01.crt and client01.key to `/media/disk2zfs/wd`
- * `rclone config create nextcloud webdav url https://<domain>/remote.php/dav/files/masysma user masysma pass <password>`
+ * `rclone config create nextcloud webdav url https://test.example.com/remote.php/dav/files/masysma user masysma pass <password>`
 
 ## Benchmark davfs2
 
@@ -881,7 +905,7 @@ user    0m2.828s
 sys     0m5.319s
 ~~~
 
-Benchmarks with `testset_bupstash` were cancelled for very slow and partial
+Benchmarks with the Bupstash test set were cancelled for very slow and partial
 progress after long times. Multiple tries were attempted and cancelled at
 the following times:
 
@@ -894,7 +918,7 @@ The GUI benchmark was performed by rsync-ing data between two VMs: One which
 held the source data and one which held the directory that is being synchronized
 by the GUI tool. Measurement starts when the copying is initiated and finishes
 as soon as the GUI displays the green checkmark for completion. The time of this
-was captured by repeatedly doing screenshots with `scrot` in intervals of 10
+was captured by repeatedly doing screenshots with `scrot` in intervals of 30
 seconds. Due to the large data sizes and times under consideration, this should
 not account for a large inaccurracy.
 
@@ -926,12 +950,12 @@ $ date # from screenshots
 Sun 15 May 2022 02:44:33 PM CEST
 ~~~
 
+![Traffic reported on the Nextcloud machine during GUI uploads](nextcloud_docker_att/network_22_for_jmbb_gui_left)
+
 In the figure, one can see two green areas: The large one on the left is the
 traffic that was monitored during the upload of the JMBB test set with the
 GUI client. The smaller and wider one on the right is the traffic monitored
-during the upload of the Bupstash test set:
-
-![Traffic reported on the Nextcloud machine during GUI uploads](nextcloud_docker_att/network_22_for_jmbb_gui_left)
+during the upload of the Bupstash test set.
 
 ## Benchmark rclone
 
@@ -942,10 +966,10 @@ user    1m18.506s
 sys     1m26.575s
 ~~~
 
-For the JMBB benchmark, a graphical representation of the network traffic on
-the target (Nextcloud) machine can be seen in the following picture:
-
 ![JMBB rclone Traffic is on the very right](nextcloud_docker_att/nextwork_22_for_jmbb_rclone_right.png)
+
+For the JMBB benchmark, a graphical representation of the network traffic on
+the target (Nextcloud) machine can be seen in the figure above.
 
 ~~~
 $ time rclone --fast-list --client-cert /media/disk2zfs/wd/client01.crt --client-key /media/disk2zfs/wd/client01.key sync /media/disk2zfs/wd/testset_bupstash/ nextcloud:testset_bupstash --create-empty-src-dirs
@@ -965,22 +989,47 @@ rclone  6.03          0.22
 Conclusion and Future Directions
 ================================
 
-It is surprising how many bugs and missing features encouters when trying to
-setup a Nextcloud securely today. Also, Nextcloud's performance on low-end
-servers like the one used here is rather bad.
+It is surprising how difficult it is to setup a Nextcloud securely today. Also,
+Nextcloud's performance on low-end servers like the one used here is rather bad.
 
 The recommended tool to access Nextcloud is definitely `rclone` given that it
-shows the best performance. In case a synchronization running in background is
-preferred, the GUI client works OK, too. `davfs2` can only be recommended for
-cases where a small number of files is processed given that operations grinded
-to halt with the bupstash testset.
+shows good performance and is automation-friendly. In case a synchronization
+running in background is preferred, the GUI client works well, too. `davfs2` can
+only be recommended for cases where a small number of files is processed given
+that operations grinded to halt with the bupstash testset.
 
-Missing TLS Client Certificate support in official Nextcloud tools should be
+Missing TLS Client Certificate support in the official Nextcloud CLI should be
 fixed.  `lftp` should be made to run on Nextcloud's WebDAV.
 
 Finally, it also seems important to not foreget about the “easier” means of
 exposing a secure file storage online: SSH and Minio/S3 come into mind as
 notable alternatives.
+
+License
+=======
+
+Content of this document and relevant scripts are available under GPLv3 or
+later. Feel free to contact me if you would like to use them under a different
+license.
+
+~~~
+Nextcloud in Docker with Letsencrypt and TLS Client Certificates,
+Copyright (c) 2022 Ma_Sys.ma.
+For further info send an e-mail to Ma_Sys.ma@web.de.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+~~~
 
 Notes from Failed Benchmarks
 ============================
