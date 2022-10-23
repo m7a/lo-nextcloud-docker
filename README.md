@@ -7,7 +7,7 @@ lang: en-US
 author: ["Linux-Fan, Ma_Sys.ma (Ma_Sys.ma@web.de)"]
 keywords: ["nextcloud", "docker", "tls", "client", "cert", "letsencrypt"]
 x-masysma-version: 1.0.0
-x-masysma-website: https://masysma.lima-city.de/37/nextcloud_docker_tls.xhtml
+x-masysma-website: https://masysma.net/37/nextcloud_docker_tls.xhtml
 x-masysma-repository: https://www.github.com/m7a/lo-nextcloud-docker
 x-masysma-owned: 1
 x-masysma-copyright: |
